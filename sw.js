@@ -66,3 +66,21 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('message', event => { if (event.data === 'ee-skip-waiting') self.skipWaiting(); });
+
+/* V1430: notifications pushed from the Easy English push server */
+self.addEventListener('push', event => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (_) { d = { title: 'Easy English', body: event.data ? event.data.text() : '' }; }
+  const opts = { body: d.body || '', icon: 'icon-192.png', badge: 'icon-96.png', data: { url: d.url || './' }, lang: 'vi' };
+  if (d.tag) { opts.tag = d.tag; opts.renotify = true; }
+  event.waitUntil(self.registration.showNotification(d.title || 'Easy English', opts));
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || './', self.location).href;
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) { if (c.url.startsWith(self.registration.scope)) { await c.focus(); return; } }
+    await self.clients.openWindow(url);
+  })());
+});
