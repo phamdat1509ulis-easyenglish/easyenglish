@@ -2,7 +2,7 @@
    Opens the site from the phone's cache straight away, then checks GitHub for a newer version in the
    background. When a new index.html is found it is saved and the page shows "New version · Reload".
    Firebase data (Firestore) and the beans server are never cached. */
-const VERSION = 'ee-cache-v1';
+const VERSION = 'ee-cache-v2';
 const CORE = ['./', './index.html'];
 
 self.addEventListener('install', event => {
@@ -18,7 +18,7 @@ self.addEventListener('activate', event => {
 });
 
 const sameOrigin = url => url.origin === self.location.origin;
-const isPage = (req, url) => req.mode === 'navigate' || (sameOrigin(url) && /\/(index\.html)?$/.test(url.pathname));
+const isPage = (req, url) => req.mode === 'navigate' || (sameOrigin(url) && /\/(index\.html|giao-vien(\.html)?)?$/.test(url.pathname));
 const isStaticCdn = url => /(^|\.)gstatic\.com$/.test(url.hostname) || url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com' || url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'cdnjs.cloudflare.com';
 const isDictionary = url => sameOrigin(url) && /\/easy-english-dictionary\//.test(url.pathname);
 const stamp = res => res ? [res.headers.get('etag') || '', res.headers.get('last-modified') || '', res.headers.get('content-length') || ''].join('|') : '';
@@ -30,7 +30,10 @@ async function tellClients(msg) {
 /* page: answer from cache at once, refresh the cache in the background */
 async function pageResponse(event, req) {
   const cache = await caches.open(VERSION);
-  const key = new Request(new URL('./', self.location).href);
+  // V1440: two pages (students: index.html, teachers: giao-vien.html), each cached under its own key
+  const url = new URL(req.url);
+  const page = /giao-vien(\.html)?$/.test(url.pathname) ? './giao-vien.html' : './';
+  const key = new Request(new URL(page, self.location).href);
   const cached = await cache.match(key);
   const network = fetch(req, { cache: 'no-cache' }).then(async res => {
     if (res && res.ok && res.type === 'basic') {
