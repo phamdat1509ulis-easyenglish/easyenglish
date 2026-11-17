@@ -2,7 +2,7 @@
    Opens the site from the phone's cache straight away, then checks GitHub for a newer version in the
    background. When a new index.html is found it is saved and the page shows "New version · Reload".
    Firebase data (Firestore) and the beans server are never cached. */
-const VERSION = 'ee-cache-v2';
+const VERSION = 'ee-cache-v2'; // V1500: page is network-first with a 3.5 s fallback to cache
 const CORE = ['./', './index.html'];
 
 self.addEventListener('install', event => {
@@ -44,7 +44,13 @@ async function pageResponse(event, req) {
     }
     return res;
   }).catch(() => null);
-  if (cached) { event.waitUntil(network); return cached; }
+  // V1500: the newest page wins when the network answers within 3.5 s (a quick 304 check when nothing changed);
+  // the cached copy is used only when the phone is offline or the network is very slow.
+  if (cached) {
+    event.waitUntil(network);
+    const fresh = await Promise.race([network, new Promise(r => setTimeout(() => r(null), 3500))]);
+    return (fresh && fresh.ok) ? fresh : cached;
+  }
   return (await network) || new Response('<h1>Offline</h1>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
 
